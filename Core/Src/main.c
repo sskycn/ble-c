@@ -49,7 +49,7 @@ DMA_HandleTypeDef hdma_usart3_rx;
 
 /* USER CODE BEGIN PV */
 #define BUFFER_SIZE 256
-uint8_t logData[BUFFER_SIZE]; // ble huart2
+uint8_t logData[BUFFER_SIZE];     // ble huart2
 uint8_t receiveData[BUFFER_SIZE]; // huart3
 /* USER CODE END PV */
 
@@ -65,6 +65,17 @@ static void MX_USART3_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+__weak void E22_SetMode(uint8_t m0, uint8_t m1)
+{
+  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_14, m0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_15, m1 ? GPIO_PIN_SET : GPIO_PIN_RESET);
+}
+
+__weak void E22_Send_Command(UART_HandleTypeDef *huart, uint8_t *data, uint8_t length)
+{
+  HAL_UART_Transmit(huart, data, length, HAL_MAX_DELAY);
+}
+
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
   if (huart == &huart2) // ble
@@ -120,16 +131,22 @@ int main(void)
 
   HAL_UARTEx_ReceiveToIdle_DMA(&huart3, receiveData, BUFFER_SIZE);
   __HAL_DMA_DISABLE_IT(&hdma_usart3_rx, DMA_IT_HT);
+
+  E22_SetMode(0, 1);
+  HAL_Delay(100);
+
+  uint8_t reset_cmd[] = {0xC0, 0x00, 0x09, 0x00, 0x00, 0x00, 0x62, 0x00, 0x17, 0x0b, 0x00, 0x00};
+  E22_Send_Command(&huart3, reset_cmd, sizeof(reset_cmd));
+  HAL_Delay(100);
+
+  E22_SetMode(1, 0);
+  HAL_Delay(100);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
-    HAL_Delay(100);
-    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
-    HAL_Delay(100);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -285,10 +302,16 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, M0_Pin|M1_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : PC13 */
-  GPIO_InitStruct.Pin = GPIO_PIN_13;
+  /*Configure GPIO pin : AUX_Pin */
+  GPIO_InitStruct.Pin = AUX_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(AUX_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : M0_Pin M1_Pin */
+  GPIO_InitStruct.Pin = M0_Pin|M1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
